@@ -6,8 +6,10 @@ import 'package:args/args.dart';
 
 import 'Database/Database.dart';
 import 'Database/RenderSettings.dart';
+import 'IsolateConfig.dart';
 import 'databaseBuilder.dart';
 import 'exporter.dart';
+import 'isolateFunc.dart';
 import 'renderer.dart';
 
 const int stdImageCount = 2000;
@@ -19,6 +21,7 @@ const int stdMinSize = 5;
 const int stdMaxSize = 90;
 
 const int stdIsolateCount = 1;
+const int stdConIsolateCount = 8;
 const int stdMaxConcurrentBack = 256;
 
 void main(List<String> arguments) async {
@@ -45,13 +48,54 @@ void main(List<String> arguments) async {
   parser.addOption('minsize');
   parser.addOption('maxsize');
 
-  // Optional seed for random generator
-  parser.addOption('seed');
-
   // Optional Flag to export labeled images
   parser.addFlag('lable', abbr: 'l');
 
+  // Optional to set how many isolates should be spawned
+  parser.addOption('isolates');
+
+  // Optional how many isolates should work concurrent
+  parser.addOption('conisolates');
+
   ArgResults results = parser.parse(arguments);
+
+  // Parse Arguments
+  int isolateCount = setByArg(results, 'isolates', stdIsolateCount);
+  int concurrentIsolates = setByArg(results, 'conisolates', stdConIsolateCount);
+  int imageCount = setByArg(results, 'imagecount', stdImageCount);
+  int minObjectsCount = setByArg(results, 'min', stdMin);
+  int maxObjectsCount = setByArg(results, 'max', stdMax);
+  int minSize = setByArg(results, 'minsize', stdMinSize);
+  int maxSize = setByArg(results, 'maxsize', stdMaxSize);
+  bool lable = results['lable'];
+
+  // Folder paths
+  String classesInput = results['classes'];
+  if (classesInput == null || classesInput == '') {
+    print('Wrong classes Path!');
+    return null;
+  }
+
+  Directory classesDir = Directory(classesInput);
+
+  if (!(classesDir.existsSync())) {
+    print('Classes Directory not existing!');
+    return null;
+  }
+
+  String backgroundsInput = results['background'];
+
+  if (backgroundsInput == null || backgroundsInput == '') {
+    print('Wrong background Path!');
+    return null;
+  }
+
+  Directory backgroundsDir = Directory(backgroundsInput);
+
+  if (!(backgroundsDir.existsSync())) {
+    print('Background Directory not existing!');
+    return null;
+  }
 
   // Setup Output Folder
   String outputPath = results['output'];
@@ -67,37 +111,47 @@ void main(List<String> arguments) async {
     await outputDir.create(recursive: true);
   }
 
-  // Get Random
-  int seed;
-  if (results['seed'] != null && results['seed'] != '') {
-    seed = results['seed'];
-  } else {
-    seed = DateTime.now().millisecondsSinceEpoch;
+  // Spawn isolates
+  List<ReceivePort> isolateList = <ReceivePort>[];
+  bool success = true;
+
+  for (int i = 0; i < isolateCount; i++) {
+    int countOffset = (imageCount ~/ isolateCount) * i;
+    ReceivePort receivePort = ReceivePort();
+
+    IsolateConfig isolateConfig = IsolateConfig(
+        i,
+        countOffset,
+        isolateCount,
+        receivePort.sendPort,
+        classesDir,
+        backgroundsDir,
+        minSize,
+        maxSize,
+        minObjectsCount,
+        maxObjectsCount,
+        imageCount ~/ isolateCount,
+        lable,
+        outputDir);
+
+    /*
+    if (isolateList.length >= concurrentIsolates) {
+      // Wait for first isolate to finish
+      success &= await isolateList.first.first;
+      isolateList.remove(0);
+    }
+    */
+
+    await Isolate.spawn(isolateFunc, isolateConfig);
+
+    isolateList.add(receivePort);
   }
 
-  Random random = Random(seed);
-
-  // Generate Database
-  print("Building Database...");
-  Database database = buildupDatabase(results, random);
-  if (database == null) {
-    print('Error while generating Database!');
-    return;
+  for (ReceivePort receivePort in isolateList) {
+    success &= await receivePort.first;
   }
 
-  int imageCount = setByArg(results, 'imagecount', stdImageCount);
-  int minObjectsCount = setByArg(results, 'min', stdMin);
-  int maxObjectsCount = setByArg(results, 'max', stdMax);
-  int minSize = setByArg(results, 'minsize', stdMinSize);
-  int maxSize = setByArg(results, 'maxsize', stdMaxSize);
-
-  RenderSettings renderSettings = RenderSettings(minSize / 100, maxSize / 100);
-
-  print("Starting render...");
-  render(database, renderSettings, minObjectsCount, maxObjectsCount, imageCount,
-      random, results['lable'], outputDir);
-
-  print('Done!');
+  print('All Done!');
 }
 
 int setByArg(ArgResults results, String name, int std) {

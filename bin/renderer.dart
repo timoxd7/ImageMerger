@@ -15,14 +15,18 @@ void render(
     int imageCount,
     Random random,
     bool exportLabeled,
-    Directory outputDir) {
-  int lastPercentReported = 0;
+    Directory outputDir,
+    int countOffset) {
+  int nextToReportPercentage = 0;
 
   for (int i = 0; i < imageCount; i++) {
     // Show Progress
-    if ((i / imageCount) * 100 > lastPercentReported) {
-      lastPercentReported = ((i / imageCount) * 100).toInt();
-      printPercent(lastPercentReported);
+    if ((i / imageCount) * 100 >= nextToReportPercentage) {
+      int actualPercentage = ((i / imageCount) * 100).toInt();
+      int calculatedPercentage = nextToReportPercentage + 1;
+
+      printPercent(actualPercentage);
+      nextToReportPercentage = max(actualPercentage, calculatedPercentage);
     }
 
     // Render Image
@@ -41,7 +45,7 @@ void render(
         random, database.backgrounds.getNext(), currentObjects, renderSettings);
 
     // Write to Storage
-    exporter(outputDir, newRenderedImage, exportLabeled);
+    exporter(outputDir, newRenderedImage, exportLabeled, countOffset);
   }
 }
 

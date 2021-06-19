@@ -9,25 +9,13 @@ import 'Database/BackgroundElement.dart';
 import 'Database/Database.dart';
 import 'Database/ObjectElement.dart';
 
-Database buildupDatabase(ArgResults results, Random random) {
+Database buildupDatabase(Directory classesDir, Directory backgroundsDir,
+    Random random, int isolateCount, int id) {
   // Generate Database
   Database database = Database(random);
 
   // Read Classes
   print('Getting Objects...');
-  String classesInput = results['classes'];
-
-  if (classesInput == null || classesInput == '') {
-    print('Wrong classes Path!');
-    return null;
-  }
-
-  Directory classesDir = Directory(classesInput);
-
-  if (!(classesDir.existsSync())) {
-    print('Classes Directory not existing!');
-    return null;
-  }
 
   // Generate Classes Database
   int classCounter = 0;
@@ -58,22 +46,15 @@ Database buildupDatabase(ArgResults results, Random random) {
 
   // Read Backgrounds
   print('Getting Backgrounds...');
-  String backgroundsInput = results['background'];
-
-  if (backgroundsInput == null || backgroundsInput == '') {
-    print('Wrong background Path!');
-    return null;
-  }
-
-  Directory backgroundsDir = Directory(backgroundsInput);
-
-  if (!(backgroundsDir.existsSync())) {
-    print('Background Directory not existing!');
-    return null;
-  }
 
   // Generate Backgrounds Database
   List<File> backgroundFiles = getImageFiles(backgroundsDir);
+
+  // Only add needed Files
+  int backgroundAmount = (backgroundFiles.length ~/ isolateCount);
+  int backgroundOffset = backgroundAmount * id;
+  backgroundFiles.removeRange(0, backgroundOffset);
+  backgroundFiles.removeRange(backgroundAmount, backgroundFiles.length);
 
   for (File backgroundFile in backgroundFiles) {
     Image currentImage = decodeImage(backgroundFile.readAsBytesSync());

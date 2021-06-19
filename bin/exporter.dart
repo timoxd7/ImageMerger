@@ -18,8 +18,14 @@ List<int> colors = <int>[
 ];
 
 int _nameCounter = 0;
-void exporter(
-    Directory outputDir, RenderedImage renderedImage, bool outputLabeled) {
+bool _counterSet = false;
+void exporter(Directory outputDir, RenderedImage renderedImage,
+    bool outputLabeled, int countOffset) {
+  if (!_counterSet) {
+    _counterSet = true;
+    _nameCounter = countOffset;
+  }
+
   File outputFileImage =
       File(path.join(outputDir.path, _nameCounter.toString() + '.jpg'));
   File outputFileBoxInfo =
