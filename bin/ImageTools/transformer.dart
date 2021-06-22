@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:image/image.dart';
 
 import '../Database/RenderSettings.dart';
+import 'blur.dart';
 import 'copyMirror.dart';
 import 'cropper/cropper.dart';
 import 'noise.dart';
@@ -28,6 +29,11 @@ Image applyTransforms(Random random, Image image, RenderSettings settings) {
 
   // Noise
   addNoise(random, image);
+
+  // Blur
+  if (random.nextBool()) {
+    addBlur(random, image);
+  }
 
   return image;
 }
