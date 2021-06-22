@@ -27,6 +27,7 @@ void isolateFunc(IsolateConfig config) {
   // Render Images
   print('[' + config.id.toString() + ']Starting render...');
   render(
+      config.id,
       database,
       renderSettings,
       config.minObjectsCount,

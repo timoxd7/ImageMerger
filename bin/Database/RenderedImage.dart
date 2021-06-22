@@ -6,7 +6,6 @@ import 'BackgroundElement.dart';
 import 'BoundingBox.dart';
 import 'ObjectElement.dart';
 import 'Rectangular.dart';
-import 'RenderSettings.dart';
 
 const int maxPlaceTries = 100;
 const double maxOverlapArea = 0.5;
@@ -17,10 +16,10 @@ class RenderedImage {
 
   RenderedImage._internal(this.image, this.boxes);
 
-  /// Resizes and places the Objects on the Background and generates the
-  /// bounding boxes
+  /// Places the given Objects on the given Background. Generates the Bounding-
+  /// Boxes too. Returns a fully rendered Image.
   factory RenderedImage(Random random, BackgroundElement background,
-      List<ObjectElement> objects, RenderSettings settings) {
+      List<ObjectElement> objects) {
     List<Rectangular> foundPositions = <Rectangular>[];
     List<BoundingBox> addedBoundingBoxes = <BoundingBox>[];
     // Copy image to
@@ -28,15 +27,9 @@ class RenderedImage {
         background.image.height);
 
     for (ObjectElement object in objects) {
-      // Resize the Object by a random value
-      double newSize = settings.maxSize - settings.minSize;
-      newSize *= random.nextDouble();
-      newSize += settings.minSize;
-      ObjectElement resizedObject = object.copyResize(newSize);
-
       // Find new Position
-      Rectangular newPosition = _getNewImagePosition(
-          random, background, resizedObject, foundPositions);
+      Rectangular newPosition =
+          _getNewImagePosition(random, background, object, foundPositions);
 
       if (newPosition == null) break;
 
@@ -44,7 +37,7 @@ class RenderedImage {
 
       // Merge into picture
       BoundingBox mergedObject =
-          _mergeIntoImage(destImage, newPosition, resizedObject);
+          _mergeIntoImage(destImage, newPosition, object);
 
       // Add bounding box
       addedBoundingBoxes.add(mergedObject);
