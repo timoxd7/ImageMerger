@@ -1,13 +1,15 @@
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:math';
 
 import 'package:args/args.dart';
+import 'package:path/path.dart' as path;
 
 import 'IsolateConfig.dart';
+import 'configGenerator.dart';
 import 'isolateFunc.dart';
 
-const int stdImageCount = 2000;
+const int stdImageCount = 2048;
+const int stdTestCount = 256;
 
 const int stdMin = 2;
 const int stdMax = 5;
@@ -20,6 +22,8 @@ const int stdConIsolateCount = 8;
 const int stdMaxConcurrentBack = 256;
 
 void main(List<String> arguments) async {
+  print('Setting up...');
+
   ArgParser parser = ArgParser();
 
   // The Images for the Background
@@ -34,6 +38,9 @@ void main(List<String> arguments) async {
   /// How many images should be created.
   /// Should be at least the amount of object pictures.
   parser.addOption('imagecount', abbr: 'i');
+
+  /// The amount of test Pictures to generate
+  parser.addOption('testcount', abbr: 't');
 
   // Min and Max of how many Objects should be put on one image
   parser.addOption('min');
@@ -54,6 +61,7 @@ void main(List<String> arguments) async {
   // Parse Arguments
   int isolateCount = setByArg(results, 'isolates', stdIsolateCount);
   int imageCount = setByArg(results, 'imagecount', stdImageCount);
+  int testCount = setByArg(results, 'testcount', stdTestCount);
   int minObjectsCount = setByArg(results, 'min', stdMin);
   int maxObjectsCount = setByArg(results, 'max', stdMax);
   int minSize = setByArg(results, 'minsize', stdMinSize);
@@ -88,7 +96,7 @@ void main(List<String> arguments) async {
     return null;
   }
 
-  // Setup Output Folder
+  // Setup Output Folders
   String outputPath = results['output'];
 
   if (outputPath == null || outputPath == '') {
@@ -96,16 +104,24 @@ void main(List<String> arguments) async {
     return;
   }
 
-  Directory outputDir = Directory(outputPath);
+  Directory outputDir = Directory(path.join(outputPath, 'data'));
 
   if (!(outputDir.existsSync())) {
-    await outputDir.create(recursive: true);
+    outputDir.createSync(recursive: true);
   }
+
+  Directory outputImageDir = Directory(path.join(outputDir.path, 'obj'));
+  outputImageDir.createSync();
+
+  Directory outputTestDir = Directory(path.join(outputDir.path, 'test'));
+  outputTestDir.createSync();
 
   // Spawn isolates
   List<ReceivePort> isolateList = <ReceivePort>[];
   bool success = true;
 
+  // Generate Images
+  print('Generating Train Images...');
   for (int i = 0; i < isolateCount; i++) {
     int countOffset = (imageCount ~/ isolateCount) * i;
     ReceivePort receivePort = ReceivePort();
@@ -123,7 +139,7 @@ void main(List<String> arguments) async {
         maxObjectsCount,
         imageCount ~/ isolateCount,
         lable,
-        outputDir);
+        outputImageDir);
 
     await Isolate.spawn(isolateFunc, isolateConfig);
 
@@ -134,7 +150,45 @@ void main(List<String> arguments) async {
     success &= await receivePort.first;
   }
 
-  print('All Done!');
+  print('Train Images Done!');
+  print('Generating test images...');
+
+  List<ReceivePort> testIsolateList = <ReceivePort>[];
+  for (int i = 0; i < isolateCount; i++) {
+    int countOffset = (testCount ~/ isolateCount) * i;
+    ReceivePort receivePort = ReceivePort();
+
+    IsolateConfig isolateConfig = IsolateConfig(
+        i,
+        countOffset,
+        isolateCount,
+        receivePort.sendPort,
+        classesDir,
+        backgroundsDir,
+        minSize,
+        maxSize,
+        minObjectsCount,
+        maxObjectsCount,
+        testCount ~/ isolateCount,
+        lable,
+        outputTestDir);
+
+    await Isolate.spawn(isolateFunc, isolateConfig);
+
+    testIsolateList.add(receivePort);
+  }
+
+  for (ReceivePort receivePort in testIsolateList) {
+    success &= await receivePort.first;
+  }
+
+  print('All Image Generation done!');
+  print('Generating YOLOv4 darknet config...');
+
+  generateConfig(outputDir, classesDir, imageCount, testCount);
+
+  print('Done!');
+  print('Bye bye!');
 }
 
 int setByArg(ArgResults results, String name, int std) {
