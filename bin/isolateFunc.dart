@@ -12,11 +12,11 @@ void isolateFunc(IsolateConfig config) {
   Random random = Random(seed);
 
   // Generate Database
-  print('[' + config.id.toString() + ']Building Database...');
+  print('[' + config.id.toString() + '] Building Database...');
   Database database = buildupDatabase(config.classesDirectory,
       config.backgroundsDirectory, random, config.isolateCount, config.id);
   if (database == null) {
-    print('[' + config.id.toString() + ']Error while generating Database!');
+    print('[' + config.id.toString() + '] Error while generating Database!');
     config.sendPort.send(false);
     return;
   }
@@ -25,7 +25,7 @@ void isolateFunc(IsolateConfig config) {
       RenderSettings(config.minSize / 100, config.maxSize / 100);
 
   // Render Images
-  print('[' + config.id.toString() + ']Starting render...');
+  print('[' + config.id.toString() + '] Starting render...');
   render(
       config.id,
       database,
@@ -38,7 +38,7 @@ void isolateFunc(IsolateConfig config) {
       config.outputDir,
       config.countOffset);
 
-  print('[' + config.id.toString() + ']Done!');
+  print('[' + config.id.toString() + '] Done!');
 
   config.sendPort.send(true);
 }
