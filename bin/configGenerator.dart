@@ -60,6 +60,7 @@ StringBuffer _getImageNames(String baseFolder, int count) {
     buffer.write(baseFolder);
     buffer.write('/');
     buffer.write(i.toString());
+    buffer.write('.jpg');
     buffer.write('\n');
   }
 
